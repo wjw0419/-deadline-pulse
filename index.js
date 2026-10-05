@@ -5,6 +5,7 @@
  * - 注册 deadline_tool 供模型调用
  * - 提供 Web API 供客户端直接操作
  * - 数据存储在 ~/.dsh/deadline-pulse/deadlines.json（所有会话共享）
+ * - v1.1: 多 Deadline 冲突检测 + AI 协商调度
  */
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -14,6 +15,7 @@ export const inject = ["tools", "webServer"];
 
 const FILE = "deadlines.json";
 const DAY = 24 * 3600 * 1000;
+const HOUR_MS = 3600 * 1000;
 
 /**
  * 获取全局配置文件路径
@@ -152,22 +154,22 @@ export function apply(ctx) {
 	// 注册模型工具
 	ctx.effect(() => ctx.tools.register({
 		name: "deadline_tool",
-		description: "Manage the user's deadlines (globally shared across all sessions). Actions: add (title and due are required; optional tag and note), list (show all deadlines), done (mark one finished by title), remove (delete one by title). Use this whenever the user asks to remember, check, finish, or delete a deadline.",
+		description: "Manage the user's deadlines (globally shared across all sessions). Actions: add (title and due required; optional tag, note, effort), list (show all), done (mark finished), remove (delete), conflicts (detect overlapping deadlines and suggest schedule), reschedule (change a deadline's due time). Use this whenever the user asks to remember, check, finish, delete, analyze conflicts, or reschedule a deadline.",
 		parameters: {
 			type: "object",
 			properties: {
 				action: { 
 					type: "string", 
-					enum: ["add", "list", "done", "remove"], 
+					enum: ["add", "list", "done", "remove", "conflicts", "reschedule"], 
 					description: "Which operation to perform." 
 				},
 				title: { 
 					type: "string", 
-					description: "Deadline title. Required for add; used to locate the item for done/remove." 
+					description: "Deadline title. Required for add/reschedule; used to locate the item for done/remove." 
 				},
 				due: { 
 					type: "string", 
-					description: "Due time for add, e.g. \"2026-02-10 18:00\" or \"2026-02-10\"." 
+					description: "Due time for add/reschedule, e.g. \"2026-02-10 18:00\" or \"2026-02-10\"." 
 				},
 				tag: { 
 					type: "string", 
@@ -176,6 +178,10 @@ export function apply(ctx) {
 				note: { 
 					type: "string", 
 					description: "Optional note." 
+				},
+				effort: { 
+					type: "number", 
+					description: "Estimated effort in hours (e.g. 3.5). Used for conflict detection." 
 				}
 			},
 			required: ["action"],
@@ -221,6 +227,7 @@ export function apply(ctx) {
 					};
 					if (typeof args.tag === "string" && args.tag.trim()) item.tag = args.tag.trim();
 					if (typeof args.note === "string" && args.note.trim()) item.note = args.note.trim();
+					if (typeof args.effort === "number" && args.effort > 0) item.effort = Math.round(args.effort * 10) / 10;
 					
 					const at = findIndex(items, title);
 					if (at >= 0) items[at] = { ...items[at], ...item };
@@ -274,7 +281,121 @@ export function apply(ctx) {
 					};
 				}
 
-				return { ok: false, message: `未知 action "${action}"，可用：add / list / done / remove。` };
+				// 冲突检测
+				if (action === "conflicts") {
+					const active = items.filter(it => !it.done);
+					if (active.length < 2) {
+						return { 
+							ok: true, 
+							message: "当前只有 " + active.length + " 条未完成截止日期，无法检测冲突。", 
+							deadlines: items,
+							conflicts: [] 
+						};
+					}
+					
+					const conflicts = [];
+					for (let i = 0; i < active.length; i++) {
+						for (let j = i + 1; j < active.length; j++) {
+							const a = active[i], b = active[j];
+							const dueA = Date.parse(a.due), dueB = Date.parse(b.due);
+							if (!Number.isFinite(dueA) || !Number.isFinite(dueB)) continue;
+							
+							const effortA = (typeof a.effort === "number" ? a.effort : 2) * HOUR_MS;
+							const effortB = (typeof b.effort === "number" ? b.effort : 2) * HOUR_MS;
+							
+							// 准备窗口：从 due - effort 到 due
+							const startA = dueA - effortA, endA = dueA;
+							const startB = dueB - effortB, endB = dueB;
+							
+							// 窗口重叠检测
+							const overlapStart = Math.max(startA, startB);
+							const overlapEnd = Math.min(endA, endB);
+							
+							if (overlapStart < overlapEnd) {
+								const overlapHours = Math.round((overlapEnd - overlapStart) / HOUR_MS * 10) / 10;
+								
+								// 同一天到期（即使准备窗口不重叠也算时间冲突）
+								const sameDay = new Date(dueA).toDateString() === new Date(dueB).toDateString();
+								
+								conflicts.push({
+									pair: [a.title, b.title],
+									overlapHours,
+									sameDay,
+									dueA: a.due,
+									dueB: b.due,
+									effortA: typeof a.effort === "number" ? a.effort : null,
+									effortB: typeof b.effort === "number" ? b.effort : null,
+									severity: sameDay && overlapHours > 0 ? "high" 
+										: overlapHours > 0 ? "medium" 
+										: sameDay ? "low" : "none"
+								});
+							} else {
+								// 准备窗口不重叠但同一天到期
+								const sameDay = new Date(dueA).toDateString() === new Date(dueB).toDateString();
+								if (sameDay) {
+									conflicts.push({
+										pair: [a.title, b.title],
+										overlapHours: 0,
+										sameDay: true,
+										dueA: a.due,
+										dueB: b.due,
+										effortA: typeof a.effort === "number" ? a.effort : null,
+										effortB: typeof b.effort === "number" ? b.effort : null,
+										severity: "low"
+									});
+								}
+							}
+						}
+					}
+					
+					const highConflicts = conflicts.filter(c => c.severity === "high");
+					const medConflicts = conflicts.filter(c => c.severity === "medium");
+					const lowConflicts = conflicts.filter(c => c.severity === "low");
+					
+					let msg = "";
+					if (conflicts.length === 0) {
+						msg = `✅ ${active.length} 条未完成截止日期之间没有检测到时间冲突。`;
+					} else {
+						const parts = [];
+						if (highConflicts.length) parts.push(`🔴 ${highConflicts.length} 组高冲突（同日+准备窗口重叠）`);
+						if (medConflicts.length) parts.push(`🟡 ${medConflicts.length} 组中冲突（准备窗口重叠）`);
+						if (lowConflicts.length) parts.push(`🟢 ${lowConflicts.length} 组低冲突（同日到期）`);
+						msg = `检测到 ${conflicts.length} 组冲突：${parts.join("；")}。建议对高冲突条目使用 reschedule 调整时间。`;
+					}
+					
+					return { ok: true, message: msg, deadlines: items, conflicts };
+				}
+
+				// 重新调度
+				if (action === "reschedule") {
+					const title = typeof args.title === "string" ? args.title.trim() : "";
+					if (!title) return { ok: false, message: "reschedule 需要 title。" };
+					
+					const newDue = normalizeDue(args.due);
+					if (!newDue) return { ok: false, message: "reschedule 需要有效的新 due 时间。" };
+					
+					const at = findIndex(items, title);
+					if (at < 0) return { 
+						ok: false, 
+						message: `没有找到匹配「${title}」的截止日期。`, 
+						deadlines: items 
+					};
+					
+					const oldDue = items[at].due;
+					items[at] = { ...items[at], due: newDue.text };
+					if (typeof args.effort === "number" && args.effort > 0) {
+						items[at].effort = Math.round(args.effort * 10) / 10;
+					}
+					await writeStore(file, items);
+					
+					return { 
+						ok: true, 
+						message: `已将「${title}」从 ${oldDue.replace("T", " ")} 调整到 ${newDue.text.replace("T", " ")}。`, 
+						deadlines: items 
+					};
+				}
+
+				return { ok: false, message: `未知 action "${action}"，可用：add / list / done / remove / conflicts / reschedule。` };
 			} catch (error) {
 				return { ok: false, message: `deadline_tool 执行失败：${error.message}` };
 			}
@@ -297,7 +418,7 @@ export function apply(ctx) {
 					req.on("error", reject);
 				});
 
-				const { action, title, due, tag, note } = body;
+				const { action, title, due, tag, note, effort } = body;
 				const file = await ensureConfigDir();
 				const store = await readStore(file);
 				
@@ -330,6 +451,7 @@ export function apply(ctx) {
 					};
 					if (tag) item.tag = tag.trim();
 					if (note) item.note = note.trim();
+					if (typeof effort === "number" && effort > 0) item.effort = Math.round(effort * 10) / 10;
 					
 					const at = findIndex(items, title);
 					if (at >= 0) items[at] = { ...items[at], ...item };
@@ -366,6 +488,62 @@ export function apply(ctx) {
 					await writeStore(file, items);
 					res.writeHead(200, { "Content-Type": "application/json" });
 					res.end(JSON.stringify({ ok: true, message: `已删除「${hit.title}」`, deadlines: items }));
+					return;
+				}
+
+				// 冲突检测
+				if (action === "conflicts") {
+					const active = items.filter(it => !it.done);
+					const conflicts = [];
+					for (let i = 0; i < active.length; i++) {
+						for (let j = i + 1; j < active.length; j++) {
+							const a = active[i], b = active[j];
+							const dueA = Date.parse(a.due), dueB = Date.parse(b.due);
+							if (!Number.isFinite(dueA) || !Number.isFinite(dueB)) continue;
+							const effortA = (typeof a.effort === "number" ? a.effort : 2) * HOUR_MS;
+							const effortB = (typeof b.effort === "number" ? b.effort : 2) * HOUR_MS;
+							const startA = dueA - effortA, endA = dueA;
+							const startB = dueB - effortB, endB = dueB;
+							const overlapStart = Math.max(startA, startB);
+							const overlapEnd = Math.min(endA, endB);
+							const sameDay = new Date(dueA).toDateString() === new Date(dueB).toDateString();
+							if (overlapStart < overlapEnd) {
+								const overlapHours = Math.round((overlapEnd - overlapStart) / HOUR_MS * 10) / 10;
+								conflicts.push({ pair: [a.title, b.title], overlapHours, sameDay, severity: sameDay ? "high" : "medium", dueA: a.due, dueB: b.due, effortA: a.effort || null, effortB: b.effort || null });
+							} else if (sameDay) {
+								conflicts.push({ pair: [a.title, b.title], overlapHours: 0, sameDay: true, severity: "low", dueA: a.due, dueB: b.due, effortA: a.effort || null, effortB: b.effort || null });
+							}
+						}
+					}
+					res.writeHead(200, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({ ok: true, conflicts, deadlines: items }));
+					return;
+				}
+
+				// 重新调度
+				if (action === "reschedule") {
+					if (!title || !due) {
+						res.writeHead(400, { "Content-Type": "application/json" });
+						res.end(JSON.stringify({ ok: false, message: "reschedule 需要 title 和新的 due" }));
+						return;
+					}
+					const normalized = normalizeDue(due);
+					if (!normalized) {
+						res.writeHead(400, { "Content-Type": "application/json" });
+						res.end(JSON.stringify({ ok: false, message: "无效的 due 格式" }));
+						return;
+					}
+					const at = findIndex(items, title);
+					if (at < 0) {
+						res.writeHead(404, { "Content-Type": "application/json" });
+						res.end(JSON.stringify({ ok: false, message: `没有找到「${title}」` }));
+						return;
+					}
+					items[at] = { ...items[at], due: normalized.text };
+					if (typeof effort === "number" && effort > 0) items[at].effort = Math.round(effort * 10) / 10;
+					await writeStore(file, items);
+					res.writeHead(200, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({ ok: true, message: `已将「${title}」调整到 ${normalized.text.replace("T", " ")}`, deadlines: items }));
 					return;
 				}
 

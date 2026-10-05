@@ -1,1 +1,1 @@
-{"meta": {"title": "Deadline Pulse", "description": "Countdown pills in the conversation header driven by deadlines.json in the workspace: urgent items stay visible with a pulse animation, and the agent can add or finish deadlines through the deadline_tool."}}
+{"meta": {"title": "Deadline Pulse", "description": "Countdown pills in the conversation header with pulse animation. v1.1 adds multi-deadline conflict detection, AI-assisted rescheduling, and effort estimation. Data stored globally in deadlines.json."}}

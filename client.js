@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
 		const MINUTE = 60e3, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 		const MAX_PILLS = 3;
 		const RING_C = 2 * Math.PI * 6;
+		const HOUR_MS = 3600000;
 
 		// 语言字典
 		const zh = {
@@ -48,7 +49,31 @@ window.__ModuleLoader__.load({
 			'toast.72': '进入 3 天倒计时',
 			'toast.24': '只剩最后 24 小时',
 			'a11y.open': '打开截止日期面板',
-			'a11y.close': '关闭截止日期面板'
+			'a11y.close': '关闭截止日期面板',
+			'conflict.btn': '⚡ 冲突检测',
+			'conflict.checking': '检测中…',
+			'conflict.none': '✅ 无时间冲突',
+			'conflict.title': '冲突检测结果',
+			'conflict.high': '🔴 高冲突',
+			'conflict.medium': '🟡 中冲突',
+			'conflict.low': '🟢 低冲突',
+			'conflict.overlap': '准备窗口重叠 {h} 小时',
+			'conflict.sameday': '同日到期',
+			'conflict.reschedule': '调整时间',
+			'conflict.effort': '预估 {h}h',
+			'conflict.noEffort': '未设工时(默认2h)',
+			'reschedule.title': '调整「{title}」的时间',
+			'reschedule.newDue': '新截止时间',
+			'reschedule.newEffort': '新预估工时(h)',
+			'reschedule.submit': '确认调整',
+			'reschedule.cancel': '取消',
+			'addForm.effort': '预估工时(h，可选)',
+			'popup.title': '⚠️ 紧急截止日期提醒',
+			'popup.subtitle': '以下 {n} 个任务将在 7 天内到期',
+			'popup.minimize': '最小化',
+			'popup.expand': '展开提醒',
+			'popup.overdue': '已超期',
+			'popup.remaining': '剩余'
 		};
 		const en = {
 			'pill.empty': 'No deadlines',
@@ -80,7 +105,31 @@ window.__ModuleLoader__.load({
 			'toast.72': 'entered the 3-day window',
 			'toast.24': 'less than 24 hours left',
 			'a11y.open': 'Open deadline panel',
-			'a11y.close': 'Close deadline panel'
+			'a11y.close': 'Close deadline panel',
+			'conflict.btn': '⚡ Check Conflicts',
+			'conflict.checking': 'Checking…',
+			'conflict.none': '✅ No conflicts detected',
+			'conflict.title': 'Conflict Detection Results',
+			'conflict.high': '🔴 High',
+			'conflict.medium': '🟡 Medium',
+			'conflict.low': '🟢 Low',
+			'conflict.overlap': 'Prep windows overlap {h}h',
+			'conflict.sameday': 'Same-day due',
+			'conflict.reschedule': 'Reschedule',
+			'conflict.effort': 'Est. {h}h',
+			'conflict.noEffort': 'No effort set (default 2h)',
+			'reschedule.title': 'Reschedule "{title}"',
+			'reschedule.newDue': 'New due time',
+			'reschedule.newEffort': 'New effort (hours)',
+			'reschedule.submit': 'Confirm',
+			'reschedule.cancel': 'Cancel',
+			'addForm.effort': 'Effort (hours, optional)',
+			'popup.title': '⚠️ Urgent Deadline Alert',
+			'popup.subtitle': '{n} task(s) due within 7 days',
+			'popup.minimize': 'Minimize',
+			'popup.expand': 'Expand alert',
+			'popup.overdue': 'Overdue',
+			'popup.remaining': 'Remaining'
 		};
 
 		// 组件样式
@@ -236,8 +285,108 @@ window.__ModuleLoader__.load({
 .dp-add-form input:focus, .dp-add-form textarea:focus { outline: none; border-color: var(--dsw-alias-brand-primary); }
 .dp-add-form textarea { resize: vertical; min-height: 40px; }
 .dp-add-form .actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+.dp-conflict-section { margin-top: 10px; padding: 10px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); }
+.dp-conflict-section .conflict-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dp-conflict-section .conflict-header .ch-title { font-weight: 600; font-size: 12px; }
+.dp-conflict-item { padding: 8px; border-radius: 6px; margin-bottom: 6px; background: var(--dsw-alias-bg-overlay); border-left: 3px solid transparent; }
+.dp-conflict-item.sev-high { border-left-color: var(--dsw-alias-state-error-primary); }
+.dp-conflict-item.sev-medium { border-left-color: var(--dsw-alias-state-warn-primary); }
+.dp-conflict-item.sev-low { border-left-color: var(--dsw-alias-state-success-primary); }
+.dp-conflict-item .pair { font-weight: 600; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dp-conflict-item .pair .vs { color: var(--dsw-alias-label-secondary); font-weight: 400; font-size: 11px; }
+.dp-conflict-item .detail { font-size: 11px; color: var(--dsw-alias-label-secondary); line-height: 1.5; }
+.dp-conflict-item .detail .tag-sev { display: inline-block; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
+.dp-conflict-item.sev-high .tag-sev { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 15%, transparent); color: var(--dsw-alias-state-error-primary); }
+.dp-conflict-item.sev-medium .tag-sev { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 15%, transparent); color: var(--dsw-alias-state-warn-primary); }
+.dp-conflict-item.sev-low .tag-sev { background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 15%, transparent); color: var(--dsw-alias-state-success-primary); }
+.dp-conflict-item .actions { display: flex; gap: 4px; margin-top: 6px; }
+.dp-item.has-conflict { position: relative; }
+.dp-item.has-conflict::after { content: '⚡'; position: absolute; top: 6px; right: 6px; font-size: 12px; }
+.dp-reschedule-form { margin-top: 8px; padding: 8px; border-radius: 6px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent); border: 1px dashed var(--dsw-alias-brand-primary); }
+.dp-reschedule-form .field { margin-bottom: 6px; }
+.dp-reschedule-form label { display: block; font-size: 11px; color: var(--dsw-alias-label-secondary); margin-bottom: 2px; }
+.dp-reschedule-form input { width: 100%; padding: 4px 7px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 5px; background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-label-primary); font-size: 12px; font-family: inherit; }
+.dp-reschedule-form input:focus { outline: none; border-color: var(--dsw-alias-brand-primary); }
+.dp-reschedule-form .actions { display: flex; gap: 4px; justify-content: flex-end; margin-top: 6px; }
+/* === Startup Alert Popup === */
+.dp-popup-overlay {
+  position: fixed; inset: 0; z-index: 10001;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  animation: dp-fade-in .2s ease-out;
+}
+@keyframes dp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.dp-popup {
+  width: 420px; max-width: 90vw; max-height: 70vh;
+  background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-label-primary);
+  border: 1px solid var(--dsw-alias-state-warn-primary);
+  border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  overflow: hidden; animation: dp-popup-in .25s ease-out;
+  display: flex; flex-direction: column;
+}
+@keyframes dp-popup-in { from { opacity: 0; transform: scale(.95) translateY(-10px); } to { opacity: 1; transform: none; } }
+.dp-popup-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent);
+}
+.dp-popup-header .warn-icon {
+  flex: none; width: 0; height: 0;
+  border-left: 12px solid transparent; border-right: 12px solid transparent;
+  border-bottom: 22px solid var(--dsw-alias-state-warn-primary);
+  position: relative;
+}
+.dp-popup-header .warn-icon::after {
+  content: '!'; position: absolute; top: 5px; left: -4px;
+  font-size: 14px; font-weight: 800; color: var(--dsw-alias-bg-overlay);
+}
+.dp-popup-header .texts { flex: 1; min-width: 0; }
+.dp-popup-header .texts .t { font-weight: 700; font-size: 14px; }
+.dp-popup-header .texts .st { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 2px; }
+.dp-popup-body { flex: 1; overflow-y: auto; padding: 10px 16px; }
+.dp-popup-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+  background: var(--dsw-alias-bg-layer-2); border-left: 3px solid transparent;
+}
+.dp-popup-item.p-overdue { border-left-color: var(--dsw-alias-state-error-primary); }
+.dp-popup-item.p-red { border-left-color: var(--dsw-alias-state-error-primary); }
+.dp-popup-item.p-yellow { border-left-color: var(--dsw-alias-state-warn-primary); }
+.dp-popup-item.p-green { border-left-color: var(--dsw-alias-state-success-primary); }
+.dp-popup-item .p-title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-popup-item .p-tag { flex: none; font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); }
+.dp-popup-item .p-time { flex: none; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dp-popup-item.p-overdue .p-time { color: var(--dsw-alias-state-error-primary); }
+.dp-popup-item.p-red .p-time { color: var(--dsw-alias-state-error-primary); }
+.dp-popup-item.p-yellow .p-time { color: var(--dsw-alias-state-warn-primary); }
+.dp-popup-footer { padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; justify-content: flex-end; }
+/* Minimized badge */
+.dp-mini-badge {
+  position: fixed; top: 80px; right: 16px; z-index: 10002;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-state-warn-primary);
+  border: 1px solid var(--dsw-alias-state-warn-primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  animation: dp-mini-in .2s ease-out;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.dp-mini-badge:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+@keyframes dp-mini-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.dp-mini-badge .mini-tri {
+  width: 0; height: 0;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 13px solid var(--dsw-alias-state-warn-primary);
+  position: relative; flex: none;
+}
+.dp-mini-badge .mini-tri::after {
+  content: '!'; position: absolute; top: 3px; left: -3px;
+  font-size: 9px; font-weight: 800; color: var(--dsw-alias-bg-overlay);
+}
 @media (prefers-reduced-motion: reduce) {
   .dp-pill { animation: none !important; }
+  .dp-popup, .dp-popup-overlay, .dp-mini-badge { animation: none !important; }
 }
 `;
 
@@ -275,6 +424,7 @@ window.__ModuleLoader__.load({
 					created: Number.isFinite(created) ? created : undefined,
 					tag: typeof raw.tag === 'string' ? raw.tag.trim() : '',
 					note: typeof raw.note === 'string' ? raw.note.trim() : '',
+					effort: typeof raw.effort === 'number' && raw.effort > 0 ? raw.effort : undefined,
 					done: raw.done === true
 				});
 			}
@@ -355,7 +505,14 @@ window.__ModuleLoader__.load({
 			const [toasts, setToasts] = useState([]);
 			const [toastMsg, setToastMsg] = useState('');
 			const [showAddForm, setShowAddForm] = useState(false);
-			const [addForm, setAddForm] = useState({ title: '', due: '', tag: '', note: '' });
+			const [addForm, setAddForm] = useState({ title: '', due: '', tag: '', note: '', effort: '' });
+			const [conflicts, setConflicts] = useState(null);
+			const [checkingConflicts, setCheckingConflicts] = useState(false);
+			const [rescheduleTarget, setRescheduleTarget] = useState(null);
+			const [rescheduleForm, setRescheduleForm] = useState({ due: '', effort: '' });
+			// Startup popup state
+			const [popupMode, setPopupMode] = useState('hidden'); // hidden | shown | minimized
+			const popupShownOnce = useRef(false);
 			const rootRef = useRef(null);
 			const panelRef = useRef(null);
 			const buckets = useRef(new Map());
@@ -386,6 +543,13 @@ window.__ModuleLoader__.load({
 					setItems(parsed);
 					setStatus('ok');
 					setErrorMsg('');
+					// Trigger startup popup on first successful load
+					if (!popupShownOnce.current) {
+						popupShownOnce.current = true;
+						const nowMs = Date.now();
+						const urgent = parsed.filter(it => !it.done && it.due !== undefined && (it.due - nowMs) <= 7 * DAY);
+						if (urgent.length > 0) setPopupMode('shown');
+					}
 				} catch (err) {
 					const errMsg = `异常：${err.message || String(err)}`;
 					console.error('[deadline-pulse] read exception:', errMsg, err);
@@ -511,6 +675,65 @@ window.__ModuleLoader__.load({
 				}
 			};
 
+			/** 冲突检测 */
+			const checkConflicts = async () => {
+				setCheckingConflicts(true);
+				try {
+					const res = await fetch("/api/deadline-pulse/action", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ action: "conflicts" })
+					});
+					const result = await res.json();
+					if (result.ok) {
+						setConflicts(result.conflicts || []);
+					} else {
+						setToastMsg(`冲突检测失败：${result.message}`);
+						setTimeout(() => setToastMsg(""), 3000);
+					}
+				} catch (err) {
+					setToastMsg(`冲突检测异常：${err.message}`);
+					setTimeout(() => setToastMsg(""), 3000);
+				} finally {
+					setCheckingConflicts(false);
+				}
+			};
+
+			/** 重新调度 */
+			const handleReschedule = async (title, newDue, newEffort) => {
+				try {
+					const body = { action: "reschedule", title, due: newDue };
+					if (newEffort && !isNaN(Number(newEffort))) body.effort = Number(newEffort);
+					const res = await fetch("/api/deadline-pulse/action", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(body)
+					});
+					const result = await res.json();
+					if (result.ok) {
+						setToastMsg(`已调整「${title}」`);
+						setTimeout(() => setToastMsg(""), 3000);
+						setRescheduleTarget(null);
+						setRescheduleForm({ due: '', effort: '' });
+						load();
+						// 如果有冲突结果，重新检测
+						if (conflicts !== null) checkConflicts();
+					} else {
+						setToastMsg(`调整失败：${result.message}`);
+						setTimeout(() => setToastMsg(""), 3000);
+					}
+				} catch (err) {
+					setToastMsg(`调整失败：${err.message}`);
+					setTimeout(() => setToastMsg(""), 3000);
+				}
+			};
+
+			/** 获取条目的冲突信息 */
+			const getItemConflicts = (itemTitle) => {
+				if (!conflicts) return [];
+				return conflicts.filter(c => c.pair.includes(itemTitle));
+			};
+
 			/** 复制模板 */
 			const copyTemplate = useCallback(() => {
 				const template = JSON.stringify({
@@ -574,26 +797,49 @@ window.__ModuleLoader__.load({
 			}
 
 			/** 单个条目行 */
-			const row = ({ item, state }, doneSection) => h('div', { key: item.key, className: `dp-item s-${state}` },
-				h('div', { className: 'row1' },
-					h('span', { className: 'dot' }),
-					h('span', { className: 'title' }, item.title),
-					item.tag ? h('span', { className: 'tag' }, item.tag) : null,
-					h('span', { className: 'when' }, state === 'done' ? t('panel.done') : countdown(item, now, t)),
-					!doneSection && state !== 'invalid' ? h('div', { style: { display: 'flex', gap: '4px' } },
-						h('button', {
-							type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' },
-							onClick: () => handleDone(item), title: '完成'
-						}, '✓'),
-						h('button', {
-							type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px', color: 'var(--dsw-alias-state-error-primary)' },
-							onClick: () => handleDelete(item), title: '删除'
-						}, '🗑')
-					) : null),
-				item.note && !doneSection ? h('div', { className: 'note' }, item.note) : null,
-				state !== 'done' && state !== 'invalid'
-					? h('div', { className: 'bar' }, h('i', { style: { width: `${Math.round(consumed(item, now) * 100)}%` } }))
-					: null);
+			const row = ({ item, state }, doneSection) => {
+				const itemConflicts = !doneSection ? getItemConflicts(item.title) : [];
+				const hasConflict = itemConflicts.length > 0;
+				return h('div', { key: item.key, className: `dp-item s-${state}${hasConflict ? ' has-conflict' : ''}` },
+					h('div', { className: 'row1' },
+						h('span', { className: 'dot' }),
+						h('span', { className: 'title' }, item.title),
+						item.tag ? h('span', { className: 'tag' }, item.tag) : null,
+						typeof item.effort === 'number' ? h('span', { className: 'tag', style: { borderColor: 'var(--dsw-alias-brand-primary)', color: 'var(--dsw-alias-brand-primary)' } }, `${item.effort}h`) : null,
+						h('span', { className: 'when' }, state === 'done' ? t('panel.done') : countdown(item, now, t)),
+						!doneSection && state !== 'invalid' ? h('div', { style: { display: 'flex', gap: '4px' } },
+							h('button', {
+								type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' },
+								onClick: () => handleDone(item), title: '完成'
+							}, '✓'),
+							h('button', {
+								type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' },
+								onClick: () => { setRescheduleTarget(item.title); setRescheduleForm({ due: item.dueText || '', effort: item.effort || '' }); },
+								title: '调整时间'
+							}, '📅'),
+							h('button', {
+								type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px', color: 'var(--dsw-alias-state-error-primary)' },
+								onClick: () => handleDelete(item), title: '删除'
+							}, '🗑')
+						) : null),
+					item.note && !doneSection ? h('div', { className: 'note' }, item.note) : null,
+					state !== 'done' && state !== 'invalid'
+						? h('div', { className: 'bar' }, h('i', { style: { width: `${Math.round(consumed(item, now) * 100)}%` } }))
+						: null,
+					// Reschedule 表单
+					rescheduleTarget === item.title && !doneSection
+						? h('div', { className: 'dp-reschedule-form' },
+							h('div', { className: 'field' },
+								h('label', null, t('reschedule.newDue')),
+								h('input', { type: 'text', value: rescheduleForm.due, onChange: (e) => setRescheduleForm({ ...rescheduleForm, due: e.target.value }), placeholder: '2026-10-16 或 2026-10-16 18:00' })),
+							h('div', { className: 'field' },
+								h('label', null, t('reschedule.newEffort')),
+								h('input', { type: 'number', value: rescheduleForm.effort, onChange: (e) => setRescheduleForm({ ...rescheduleForm, effort: e.target.value }), placeholder: '例如 3.5', step: '0.5', min: '0' })),
+							h('div', { className: 'actions' },
+								h('button', { type: 'button', className: 'dp-btn', onClick: () => { setRescheduleTarget(null); setRescheduleForm({ due: '', effort: '' }); } }, t('reschedule.cancel')),
+								h('button', { type: 'button', className: 'dp-btn primary', onClick: () => handleReschedule(item.title, rescheduleForm.due, rescheduleForm.effort) }, t('reschedule.submit'))))
+						: null);
+			};
 
 			// 统计面板
 			const stats = h('div', { className: 'dp-stats' },
@@ -653,31 +899,36 @@ window.__ModuleLoader__.load({
 										h('div', { className: 'field' },
 											h('label', null, t('panel.addForm.note')),
 											h('textarea', { value: addForm.note, onChange: (e) => setAddForm({ ...addForm, note: e.target.value }) })),
+										h('div', { className: 'field' },
+											h('label', null, t('addForm.effort')),
+											h('input', { type: 'number', value: addForm.effort, onChange: (e) => setAddForm({ ...addForm, effort: e.target.value }), placeholder: '例如 3.5', step: '0.5', min: '0' })),
 										h('div', { className: 'actions' },
 											h('button', {
-												type: 'button', className: 'dp-btn', onClick: () => { setShowAddForm(false); setAddForm({ title: '', due: '', tag: '', note: '' }); },
+												type: 'button', className: 'dp-btn', onClick: () => { setShowAddForm(false); setAddForm({ title: '', due: '', tag: '', note: '', effort: '' }); },
 											}, t('panel.addForm.cancel')),
 											h('button', {
 												type: 'button', className: 'dp-btn primary',
 												onClick: async () => {
 													try {
+														const body = {
+															action: "add",
+															title: addForm.title,
+															due: addForm.due,
+															tag: addForm.tag,
+															note: addForm.note
+														};
+														if (addForm.effort && !isNaN(Number(addForm.effort))) body.effort = Number(addForm.effort);
 														const res = await fetch("/api/deadline-pulse/action", {
 															method: "POST",
 															headers: { "Content-Type": "application/json" },
-															body: JSON.stringify({
-																action: "add",
-																title: addForm.title,
-																due: addForm.due,
-																tag: addForm.tag,
-																note: addForm.note
-															})
+															body: JSON.stringify(body)
 														});
 														const result = await res.json();
 														if (result.ok) {
 															setToastMsg(`已添加「${addForm.title}」`);
 															setTimeout(() => setToastMsg(""), 3000);
 															setShowAddForm(false);
-															setAddForm({ title: '', due: '', tag: '', note: '' });
+															setAddForm({ title: '', due: '', tag: '', note: '', effort: '' });
 															load();
 														} else {
 															setToastMsg(`添加失败：${result.message}`);
@@ -693,6 +944,36 @@ window.__ModuleLoader__.load({
 										type: 'button', className: 'dp-btn primary', style: { width: '100%' },
 										onClick: () => setShowAddForm(true),
 									}, `+ ${t('panel.add')}`))),
+				// 冲突检测区域
+				active.length >= 2 ? h('div', { style: { marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--dsw-alias-border-l1)' } },
+					conflicts === null
+						? h('button', {
+							type: 'button', className: 'dp-btn primary', style: { width: '100%' },
+							onClick: checkConflicts, disabled: checkingConflicts
+						}, checkingConflicts ? t('conflict.checking') : t('conflict.btn'))
+						: h('div', { className: 'dp-conflict-section' },
+							h('div', { className: 'conflict-header' },
+								h('span', { className: 'ch-title' }, t('conflict.title')),
+								h('button', { type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' }, onClick: checkConflicts, disabled: checkingConflicts }, checkingConflicts ? '…' : '🔄')),
+							conflicts.length === 0
+								? h('div', { style: { textAlign: 'center', padding: '8px', color: 'var(--dsw-alias-state-success-primary)', fontSize: '12px' } }, t('conflict.none'))
+								: conflicts.map((c, idx) => h('div', { key: idx, className: `dp-conflict-item sev-${c.severity}` },
+									h('div', { className: 'pair' },
+										h('span', null, c.pair[0]),
+										h('span', { className: 'vs' }, '⇄'),
+										h('span', null, c.pair[1])),
+									h('div', { className: 'detail' },
+										h('span', { className: 'tag-sev' }, t(`conflict.${c.severity}`)),
+										c.overlapHours > 0 ? h('span', null, t('conflict.overlap').replace('{h}', String(c.overlapHours))) : null,
+										c.sameDay && c.overlapHours <= 0 ? h('span', null, t('conflict.sameday')) : null,
+										h('br'),
+										c.effortA !== null ? h('span', null, `${c.pair[0]}: ${t('conflict.effort').replace('{h}', String(c.effortA))}`) : h('span', { style: { opacity: 0.7 } }, `${c.pair[0]}: ${t('conflict.noEffort')}`),
+										h('br'),
+										c.effortB !== null ? h('span', null, `${c.pair[1]}: ${t('conflict.effort').replace('{h}', String(c.effortB))}`) : h('span', { style: { opacity: 0.7 } }, `${c.pair[1]}: ${t('conflict.noEffort')}`)),
+									h('div', { className: 'actions' },
+										h('button', { type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' }, onClick: () => { setRescheduleTarget(c.pair[0]); const it = items.find(x => x.title === c.pair[0]); setRescheduleForm({ due: it ? (it.dueText || '') : '', effort: it ? (it.effort || '') : '' }); } }, `${t('conflict.reschedule')} ${c.pair[0]}`),
+										h('button', { type: 'button', className: 'dp-btn', style: { fontSize: '11px', padding: '2px 6px' }, onClick: () => { setRescheduleTarget(c.pair[1]); const it = items.find(x => x.title === c.pair[1]); setRescheduleForm({ due: it ? (it.dueText || '') : '', effort: it ? (it.effort || '') : '' }); } }, `${t('conflict.reschedule')} ${c.pair[1]}`)))))
+				) : null,
 				h('div', { className: 'dp-foot' },
 					h('span', { className: 'hint' }, '数据文件：~/.dsh/deadline-pulse/deadlines.json'),
 					h('span', { className: 'acts' },
@@ -709,11 +990,62 @@ window.__ModuleLoader__.load({
 					h('span', { className: 'dot', style: { background: 'var(--dsw-alias-state-success-primary)' } }),
 					h('span', null, toastMsg)) : null);
 
+			// === Startup Popup ===
+			const urgentItems = items
+				.filter(it => !it.done && it.due !== undefined && (it.due - now) <= 7 * DAY)
+				.sort((a, b) => a.due - b.due);
+
+			const popupStateClass = (item) => {
+				const left = item.due - now;
+				if (left <= 0) return 'p-overdue';
+				if (left <= DAY) return 'p-red';
+				if (left <= 3 * DAY) return 'p-yellow';
+				return 'p-green';
+			};
+
+			const popupTimeLabel = (item) => {
+				const left = item.due - now;
+				if (left <= 0) return `${t('popup.overdue')} ${countdown(item, now, t)}`;
+				return `${t('popup.remaining')} ${countdown(item, now, t)}`;
+			};
+
+			const startupPopup = popupMode === 'shown' && urgentItems.length > 0
+				? h('div', { className: 'dp-popup-overlay', onClick: (e) => { if (e.target === e.currentTarget) setPopupMode('minimized'); } },
+					h('div', { className: 'dp-popup' },
+						h('div', { className: 'dp-popup-header' },
+							h('div', { className: 'warn-icon' }),
+							h('div', { className: 'texts' },
+								h('div', { className: 't' }, t('popup.title')),
+								h('div', { className: 'st' }, t('popup.subtitle').replace('{n}', String(urgentItems.length))))),
+						h('div', { className: 'dp-popup-body' },
+							...urgentItems.map(item =>
+								h('div', { key: item.key, className: `dp-popup-item ${popupStateClass(item)}` },
+									h('span', { className: 'p-title' }, item.title),
+									item.tag ? h('span', { className: 'p-tag' }, item.tag) : null,
+									h('span', { className: 'p-time' }, popupTimeLabel(item))))),
+						h('div', { className: 'dp-popup-footer' },
+							h('button', { type: 'button', className: 'dp-btn primary', onClick: () => setPopupMode('minimized') }, t('popup.minimize')))))
+				: null;
+
+			const miniBadge = popupMode === 'minimized' && urgentItems.length > 0
+				? h('div', {
+					className: 'dp-mini-badge',
+					onClick: () => setPopupMode('shown'),
+					title: t('popup.expand'),
+					role: 'button', tabIndex: 0,
+					onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') setPopupMode('shown'); }
+				},
+					h('div', { className: 'mini-tri' }),
+					h('span', null, `${urgentItems.length} ${t('popup.remaining')}`))
+				: null;
+
 			return h('div', { className: 'dp-root', ref: rootRef },
 				h('style', null, CSS),
 				pills,
 				panel,
-				toastLayer);
+				toastLayer,
+				startupPopup,
+				miniBadge);
 		}
 
 		const inject = ['slots', 'locale'];
