@@ -1,0 +1,3 @@
+- insert:
+    - id: deadline-pulse
+      name: '@local/deadline-pulse'
