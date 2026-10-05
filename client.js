@@ -18,6 +18,16 @@ window.__ModuleLoader__.load({
 		const RING_C = 2 * Math.PI * 6;
 		const HOUR_MS = 3600000;
 
+		/**
+		 * 安全解析 effort 值：空字符串/null/undefined/NaN/≤0 均返回 undefined
+		 * 统一用于 add 表单和 reschedule 表单的提交校验
+		 */
+		function parseEffort(raw) {
+			if (raw === '' || raw === null || raw === undefined) return undefined;
+			const n = Number(raw);
+			return Number.isFinite(n) && n > 0 ? n : undefined;
+		}
+
 		// 语言字典
 		const zh = {
 			'pill.empty': '无截止日期',
@@ -578,6 +588,14 @@ window.__ModuleLoader__.load({
 			// 清理 toast 定时器
 			useEffect(() => () => { toastTimers.current.forEach(clearTimeout); }, []);
 
+			// 安全地自动隐藏弹窗：当紧急条目全部完成/移除后，弹窗/徽章自动消失
+			useEffect(() => {
+				if (popupMode !== 'hidden') {
+					const hasUrgent = items.some(it => !it.done && it.due !== undefined && (it.due - now) <= 7 * DAY);
+					if (!hasUrgent) setPopupMode('hidden');
+				}
+			}, [items, now, popupMode]);
+
 			/** 推送阈值提醒 toast */
 			const pushToast = useCallback((kind, title) => {
 				const id = `${kind}|${title}|${Date.now()}`;
@@ -703,7 +721,8 @@ window.__ModuleLoader__.load({
 			const handleReschedule = async (title, newDue, newEffort) => {
 				try {
 					const body = { action: "reschedule", title, due: newDue };
-					if (newEffort && !isNaN(Number(newEffort))) body.effort = Number(newEffort);
+					const parsedEffort = parseEffort(newEffort);
+					if (parsedEffort !== undefined) body.effort = parsedEffort;
 					const res = await fetch("/api/deadline-pulse/action", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -917,7 +936,8 @@ window.__ModuleLoader__.load({
 															tag: addForm.tag,
 															note: addForm.note
 														};
-														if (addForm.effort && !isNaN(Number(addForm.effort))) body.effort = Number(addForm.effort);
+														const addParsedEffort = parseEffort(addForm.effort);
+														if (addParsedEffort !== undefined) body.effort = addParsedEffort;
 														const res = await fetch("/api/deadline-pulse/action", {
 															method: "POST",
 															headers: { "Content-Type": "application/json" },

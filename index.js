@@ -144,7 +144,8 @@ const outputSchema = {
 	properties: {
 		ok: { type: "boolean" },
 		message: { type: "string" },
-		deadlines: { type: "array", items: { type: "object", additionalProperties: true } }
+		deadlines: { type: "array", items: { type: "object", additionalProperties: true } },
+		conflicts: { type: "array", items: { type: "object", additionalProperties: true } }
 	},
 	required: ["ok", "message"],
 	additionalProperties: false
@@ -509,9 +510,9 @@ export function apply(ctx) {
 							const sameDay = new Date(dueA).toDateString() === new Date(dueB).toDateString();
 							if (overlapStart < overlapEnd) {
 								const overlapHours = Math.round((overlapEnd - overlapStart) / HOUR_MS * 10) / 10;
-								conflicts.push({ pair: [a.title, b.title], overlapHours, sameDay, severity: sameDay ? "high" : "medium", dueA: a.due, dueB: b.due, effortA: a.effort || null, effortB: b.effort || null });
+								conflicts.push({ pair: [a.title, b.title], overlapHours, sameDay, severity: sameDay && overlapHours > 0 ? "high" : overlapHours > 0 ? "medium" : sameDay ? "low" : "none", dueA: a.due, dueB: b.due, effortA: typeof a.effort === "number" ? a.effort : null, effortB: typeof b.effort === "number" ? b.effort : null });
 							} else if (sameDay) {
-								conflicts.push({ pair: [a.title, b.title], overlapHours: 0, sameDay: true, severity: "low", dueA: a.due, dueB: b.due, effortA: a.effort || null, effortB: b.effort || null });
+								conflicts.push({ pair: [a.title, b.title], overlapHours: 0, sameDay: true, severity: "low", dueA: a.due, dueB: b.due, effortA: typeof a.effort === "number" ? a.effort : null, effortB: typeof b.effort === "number" ? b.effort : null });
 							}
 						}
 					}
@@ -564,10 +565,6 @@ export function apply(ctx) {
 			try {
 				const file = await ensureConfigDir();
 				const store = await readStore(file);
-				
-				// Debug logging
-				console.log('[deadline-pulse] File path:', file);
-				console.log('[deadline-pulse] Store:', JSON.stringify(store, null, 2));
 				
 				if (store.error && !store.error.includes("不存在")) {
 					res.writeHead(400, { "Content-Type": "application/json" });
